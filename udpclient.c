@@ -1,6 +1,6 @@
 /* 
  * udpclient.c - A simple UDP client
- * usage: udpclient <host> <port>
+ * usage: udpclient <host> <port> <filename>
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +11,7 @@
 #include <netinet/in.h>
 #include <netdb.h> 
 
-#define BUFSIZE 1024
+#define BUFSIZE 64
 
 /* 
  * error - wrapper for perror
@@ -27,7 +27,9 @@ int main(int argc, char **argv) {
     struct sockaddr_in serveraddr;
     struct hostent *server;
     char *hostname, *filename;
-    char buf[BUFSIZE];
+    char packetbuf[BUFSIZE];
+    int filebufsize = BUFSIZE;
+    char *filebuf = (char*)malloc(BUFSIZE);
 
     /* check command line arguments */
     if (argc != 4) {
@@ -57,7 +59,7 @@ int main(int argc, char **argv) {
 	  (char *)&serveraddr.sin_addr.s_addr, server->h_length);
     serveraddr.sin_port = htons(portno);
 
-    /* filename requeste by the user */
+    /* filename requested by the user */
     printf("Requested filename: %s\n", filename);
 
     /* send the message to the server */
@@ -66,10 +68,18 @@ int main(int argc, char **argv) {
     if (n < 0) 
       error("ERROR in sendto");
     
-    /* print the server's reply */
-    n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
-    if (n < 0) 
-      error("ERROR in recvfrom");
-    printf("File content: %s\n", buf);
+    /* server's reply */
+    while(1) {
+      bzero(packetbuf, BUFSIZE);
+      filebufsize += BUFSIZE;
+      filebuf = (char*) realloc(filebuf, filebufsize); 
+      n = recvfrom(sockfd, packetbuf, BUFSIZE, 0, &serveraddr, &serverlen);
+      if (n < 0) 
+        error("ERROR in recvfrom");
+      printf("Packet content: %s\n", packetbuf);
+      strcat(filebuf, packetbuf);
+    }
+    //TODO: print filebuf.
+
     return 0;
 }

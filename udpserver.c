@@ -13,7 +13,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define BUFSIZE 1024
+#define BUFSIZE 64
 
 /*
  * error - wrapper for perror
@@ -102,28 +102,28 @@ int main(int argc, char **argv) {
     hostaddrp = inet_ntoa(clientaddr.sin_addr);
     if (hostaddrp == NULL)
       error("ERROR on inet_ntoa\n");
-    printf("server received datagram from %s (%s)\n", 
+    printf("Server received datagram from %s (%s)\n", 
 	   hostp->h_name, hostaddrp);
-    printf("server received %d/%d bytes: %s\n", strlen(buf), n, buf);
+    printf("Server received %d/%d bytes: %s\n", strlen(buf), n, buf);
     
-    // send file back
-    // buf = filename
-    // find and split file (loop)
-    //   send each packet to client
-
-    // read 1k bytes, send, read another 1k, etc.
+    /*
+     * open and read file. send file contents via packets.
+     */
     FILE *fp;
     fp = fopen(buf, "r");
     if (fp == NULL) 
 	    error("ERROR in fopen");
-    fgets(packetbuf, BUFSIZE, (FILE*)fp);
-    n = sendto(sockfd, packetbuf, strlen(packetbuf), 0,
-	       (struct sockaddr *) &clientaddr, clientlen);
-    if (n < 0) 
+    while (fgets(packetbuf, BUFSIZE, (FILE*)fp) != NULL) {
+      printf("Packet content: %s\n", packetbuf);
+      n = sendto(sockfd, packetbuf, strlen(packetbuf), 0,
+		 (struct sockaddr *) &clientaddr, clientlen);
+      if (n < 0) 
 	    error("ERROR in sendto");
-
+    }
     fclose(fp);
     printf("Successfully sent file!\n");
+    // TODO: send some special message to client to
+    // signal that the file finished sending.
     
   }
 }
