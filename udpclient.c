@@ -77,6 +77,11 @@ int main(int argc, char **argv) {
       if (n < 0) 
         error("ERROR in recvfrom");
       printf("Packet content: %s\n", packetbuf);
+      // send ACK
+      char ack[] = "received";
+      n = sendto(sockfd, ack, strlen(ack), 0, &serveraddr, serverlen);
+      if (n < 0) 
+	      error("ERROR in sendto");
       strcat(filebuf, packetbuf);
     }
     //TODO: print filebuf.

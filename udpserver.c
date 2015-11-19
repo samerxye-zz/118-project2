@@ -119,6 +119,12 @@ int main(int argc, char **argv) {
 		 (struct sockaddr *) &clientaddr, clientlen);
       if (n < 0) 
 	    error("ERROR in sendto");
+      // wait for ACK
+      n = recvfrom(sockfd, buf, BUFSIZE, 0,
+		   (struct sockaddr *) &clientaddr, &clientlen);
+      if (n < 0) 
+	    error("ERROR in recvfrom");
+      printf("Ack message: %s\n", buf);
     }
     fclose(fp);
     printf("Successfully sent file!\n");
