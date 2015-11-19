@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 
 #define BUFSIZE 64
+#define HDRSIZE sizeof(int)
 
 /*
  * error - wrapper for perror
@@ -35,6 +36,8 @@ int main(int argc, char **argv) {
   char *hostaddrp; /* dotted decimal host addr string */
   int optval; /* flag value for setsockopt */
   int n; /* message byte size */
+  char* hdrbuf = (char*)malloc(HDRSIZE);
+  int acknum;
 
   /* 
    * check command line arguments 
@@ -120,11 +123,12 @@ int main(int argc, char **argv) {
       if (n < 0) 
 	    error("ERROR in sendto");
       // wait for ACK
-      n = recvfrom(sockfd, buf, BUFSIZE, 0,
+      n = recvfrom(sockfd, hdrbuf, HDRSIZE, 0,
 		   (struct sockaddr *) &clientaddr, &clientlen);
       if (n < 0) 
 	    error("ERROR in recvfrom");
-      printf("Ack message: %s\n", buf);
+      memcpy(&acknum, hdrbuf, HDRSIZE);
+      printf("Ack message: %d\n", acknum);
     }
     fclose(fp);
     printf("Successfully sent file!\n");
