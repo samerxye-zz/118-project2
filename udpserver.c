@@ -32,12 +32,15 @@ int main(int argc, char **argv) {
   struct sockaddr_in clientaddr; /* client addr */
   struct hostent *hostp; /* client host info */
   char buf[BUFSIZE]; /* message buf */
+  char payloadbuf[BUFSIZE];
   char packetbuf[BUFSIZE]; /* response packet buf */
   char *hostaddrp; /* dotted decimal host addr string */
   int optval; /* flag value for setsockopt */
   int n; /* message byte size */
   char* hdrbuf = (char*)malloc(HDRSIZE);
-  int acknum;
+  int acknum = 0; // only for receiving
+  int seqnum = 0;
+  
 
   /* 
    * check command line arguments 
@@ -116,19 +119,31 @@ int main(int argc, char **argv) {
     fp = fopen(buf, "r");
     if (fp == NULL) 
 	    error("ERROR in fopen");
-    while (fgets(packetbuf, BUFSIZE, (FILE*)fp) != NULL) {
-      printf("Packet content: %s\n", packetbuf);
-      n = sendto(sockfd, packetbuf, strlen(packetbuf), 0,
+    // Construct payload: get file info
+    while (fgets(payloadbuf, BUFSIZE-HDRSIZE, (FILE*)fp) != NULL) {
+      // Construct header
+      memcpy(hdrbuf, &seqnum, HDRSIZE);
+
+      // Packet = payload + header
+      memcpy(packetbuf, hdrbuf, HDRSIZE);
+      memcpy(packetbuf+HDRSIZE, payloadbuf, BUFSIZE-HDRSIZE);
+      printf("Packet content: %s\n", packetbuf+HDRSIZE);
+
+      // Send packet
+      n = sendto(sockfd, packetbuf, BUFSIZE, 0,
 		 (struct sockaddr *) &clientaddr, clientlen);
       if (n < 0) 
 	    error("ERROR in sendto");
-      // wait for ACK
+
+      // Wait for ACK from client
       n = recvfrom(sockfd, hdrbuf, HDRSIZE, 0,
 		   (struct sockaddr *) &clientaddr, &clientlen);
       if (n < 0) 
 	    error("ERROR in recvfrom");
       memcpy(&acknum, hdrbuf, HDRSIZE);
-      printf("Ack message: %d\n", acknum);
+      printf("Ack number: %d\n", acknum);
+
+      seqnum++;
     }
     fclose(fp);
     printf("Successfully sent file!\n");

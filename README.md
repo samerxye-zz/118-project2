@@ -14,10 +14,10 @@
 ## TODO:
 1. implement header info and append to each packet
   - What info do we need for **reliable** delivery? for GBN?
-  a. ACK#
-     - First implement stop-and-wait. Only send out next packet upon receiving an ACK. (ie. window size = 1)
-     - Implement Seq#
-     - Implement window size
+  - CURRENTLY IMPLEMENTED: 
+    - ACK# from client to server is the SEQ# of the next expected packet
+    - SEQ# from server to client is the SEQ# of the current packet  
+  - Implement window size
 2. implement handshake
   - SYN, SYNACK, END
   - close also? FIN, ACK

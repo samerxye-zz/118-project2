@@ -32,16 +32,9 @@ int main(int argc, char **argv) {
     int filebufsize = BUFSIZE;
     char *filebuf = (char*)malloc(BUFSIZE);
     char *hdrbuf = (char*)malloc(HDRSIZE);
-    int acknum = 0;
-
-    // test
-    char* ackchar = (char*)malloc(sizeof(int));
-    int ackint = 1203122;
-    memcpy(ackchar, &ackint, sizeof(int));
-    int ackint2;
-    memcpy(&ackint2, ackchar, sizeof(int));
-    printf("ackint1 = %d, ackint2 = %d\n", ackint, ackint2);
-    //
+    char *payloadbuf = (char*)malloc(BUFSIZE);
+    int acknum = 1;
+    int seqnum = 0; // only for receiving
 
     /* check command line arguments */
     if (argc != 4) {
@@ -85,11 +78,20 @@ int main(int argc, char **argv) {
       bzero(packetbuf, BUFSIZE);
       filebufsize += BUFSIZE;
       filebuf = (char*) realloc(filebuf, filebufsize); 
+      
+      // Receive entire packet
       n = recvfrom(sockfd, packetbuf, BUFSIZE, 0, &serveraddr, &serverlen);
       if (n < 0) 
         error("ERROR in recvfrom");
-      printf("Packet content: %s\n", packetbuf);
-      // send ACK
+
+      // Get header
+      memcpy(&seqnum, packetbuf, HDRSIZE);
+      printf("Sequence number: %d\n", seqnum);
+      // Get payload
+      memcpy(payloadbuf, packetbuf+HDRSIZE, BUFSIZE-HDRSIZE);
+      printf("Packet content: %s\n", payloadbuf);
+      
+      // send ACK to server
       memcpy(hdrbuf, &acknum, HDRSIZE);      
       n = sendto(sockfd, hdrbuf, strlen(hdrbuf), 0, &serveraddr, serverlen);
       if (n < 0) 
@@ -99,6 +101,6 @@ int main(int argc, char **argv) {
       strcat(filebuf, packetbuf);
     }
     //TODO: print filebuf.
-
+    // put filebuf into file.
     return 0;
 }
