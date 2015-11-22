@@ -13,8 +13,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define BUFSIZE 64
+#define PKTSIZE 64
 #define HDRSIZE sizeof(int)
+#define PAYLOADSIZE (PKTSIZE-HDRSIZE)
 
 /*
  * error - wrapper for perror
@@ -31,29 +32,25 @@ int main(int argc, char **argv) {
   struct sockaddr_in serveraddr; /* server's addr */
   struct sockaddr_in clientaddr; /* client addr */
   struct hostent *hostp; /* client host info */
-  char buf[BUFSIZE]; /* message buf */
-  char payloadbuf[BUFSIZE];
-  char packetbuf[BUFSIZE]; /* response packet buf */
+  char buf[PKTSIZE]; /* initial message buf */
   char *hostaddrp; /* dotted decimal host addr string */
   int optval; /* flag value for setsockopt */
   int n; /* message byte size */
-  char* hdrbuf = (char*)malloc(HDRSIZE);
-  int acknum = 0; // only for receiving
-  int seqnum = 0;
+  char packetbuf[PKTSIZE]; // Entire packet's data
+  char* hdrbuf = (char*)malloc(HDRSIZE); // Packet header
+  char payloadbuf[PKTSIZE]; // Packet payload
+  int acknum = 0; // Sequence number of packet that client is expecting
+  int seqnum = 0; // Sequence number of packet that server is sending
   
 
-  /* 
-   * check command line arguments 
-   */
+  /* check command line arguments */
   if (argc != 2) {
     fprintf(stderr, "usage: %s <port>\n", argv[0]);
     exit(1);
   }
   portno = atoi(argv[1]);
 
-  /* 
-   * socket: create the parent socket 
-   */
+  /* socket: create the parent socket */
   sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   if (sockfd < 0) 
     error("ERROR opening socket");
@@ -67,40 +64,30 @@ int main(int argc, char **argv) {
   setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, 
 	     (const void *)&optval , sizeof(int));
 
-  /*
-   * build the server's Internet address
-   */
+  /* build the server's Internet address */
   bzero((char *) &serveraddr, sizeof(serveraddr));
   serveraddr.sin_family = AF_INET;
   serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
   serveraddr.sin_port = htons((unsigned short)portno);
 
-  /* 
-   * bind: associate the parent socket with a port 
-   */
+  /* bind: associate the parent socket with a port */
   if (bind(sockfd, (struct sockaddr *) &serveraddr, 
 	   sizeof(serveraddr)) < 0) 
     error("ERROR on binding");
 
-  /* 
-   * main loop: wait for a datagram, then echo it
-   */
+  /* main loop: wait for a file request */
   clientlen = sizeof(clientaddr);
   while (1) {
+    bzero(buf, PKTSIZE);
+    bzero(packetbuf, PKTSIZE);
 
-    /*
-     * recvfrom: receive a UDP datagram from a client
-     */
-    bzero(buf, BUFSIZE);
-    bzero(packetbuf, BUFSIZE);
-    n = recvfrom(sockfd, buf, BUFSIZE, 0,
+    /* recvfrom = receive packet */
+    n = recvfrom(sockfd, buf, PKTSIZE, 0,
 		 (struct sockaddr *) &clientaddr, &clientlen);
     if (n < 0)
       error("ERROR in recvfrom");
 
-    /* 
-     * gethostbyaddr: determine who sent the datagram
-     */
+    /* gethostbyaddr: determine who sent the datagram */
     hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, 
 			  sizeof(clientaddr.sin_addr.s_addr), AF_INET);
     if (hostp == NULL)
@@ -112,25 +99,24 @@ int main(int argc, char **argv) {
 	   hostp->h_name, hostaddrp);
     printf("Server received %d/%d bytes: %s\n", strlen(buf), n, buf);
     
-    /*
-     * open and read file. send file contents via packets.
-     */
+    /* open and read file. send file contents via packets. */
     FILE *fp;
     fp = fopen(buf, "r");
     if (fp == NULL) 
 	    error("ERROR in fopen");
-    // Construct payload: get file info
-    while (fgets(payloadbuf, BUFSIZE-HDRSIZE, (FILE*)fp) != NULL) {
+    /* Second loop: send packet, wait for ack, then send next */
+      // Construct payload: get file info
+    while (fgets(payloadbuf, PAYLOADSIZE, (FILE*)fp) != NULL) {
       // Construct header
       memcpy(hdrbuf, &seqnum, HDRSIZE);
 
       // Packet = payload + header
       memcpy(packetbuf, hdrbuf, HDRSIZE);
-      memcpy(packetbuf+HDRSIZE, payloadbuf, BUFSIZE-HDRSIZE);
+      memcpy(packetbuf+HDRSIZE, payloadbuf, PAYLOADSIZE);
       printf("Packet content: %s\n", packetbuf+HDRSIZE);
 
       // Send packet
-      n = sendto(sockfd, packetbuf, BUFSIZE, 0,
+      n = sendto(sockfd, packetbuf, PKTSIZE, 0,
 		 (struct sockaddr *) &clientaddr, clientlen);
       if (n < 0) 
 	    error("ERROR in sendto");

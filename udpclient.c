@@ -11,8 +11,9 @@
 #include <netinet/in.h>
 #include <netdb.h> 
 
-#define BUFSIZE 64
+#define PKTSIZE 64
 #define HDRSIZE sizeof(int)
+#define PAYLOADSIZE (PKTSIZE-HDRSIZE)
 
 /* 
  * error - wrapper for perror
@@ -28,13 +29,13 @@ int main(int argc, char **argv) {
     struct sockaddr_in serveraddr;
     struct hostent *server;
     char *hostname, *filename;
-    char packetbuf[BUFSIZE];
-    int filebufsize = BUFSIZE;
-    char *filebuf = (char*)malloc(BUFSIZE);
-    char *hdrbuf = (char*)malloc(HDRSIZE);
-    char *payloadbuf = (char*)malloc(BUFSIZE);
-    int acknum = 1;
-    int seqnum = 0; // only for receiving
+    int filebufsize = PAYLOADSIZE; // Accumulates payload from packets
+    char *filebuf = (char*)malloc(1);
+    char packetbuf[PKTSIZE]; // Data for entire packet: hdrbuf + payloadbuf
+    char *hdrbuf = (char*)malloc(HDRSIZE); // Packet header data
+    char *payloadbuf = (char*)malloc(PKTSIZE); // Packet payload data
+    int acknum = 1; // Sequence number of next packet that client expects from server
+    int seqnum = 0; // Sequence number of packet received from server.
 
     /* check command line arguments */
     if (argc != 4) {
@@ -67,20 +68,20 @@ int main(int argc, char **argv) {
     /* filename requested by the user */
     printf("Requested filename: %s\n", filename);
 
-    /* send the message to the server */
+    /* send the filename to the server */
     serverlen = sizeof(serveraddr);
     n = sendto(sockfd, filename, strlen(filename), 0, &serveraddr, serverlen);
     if (n < 0) 
       error("ERROR in sendto");
     
-    /* server's reply */
+    /* Main loop: receive packet, send ACK, repeat */
     while(1) {
-      bzero(packetbuf, BUFSIZE);
-      filebufsize += BUFSIZE;
+      bzero(packetbuf, PKTSIZE);
+      filebufsize += (PAYLOADSIZE);
       filebuf = (char*) realloc(filebuf, filebufsize); 
       
       // Receive entire packet
-      n = recvfrom(sockfd, packetbuf, BUFSIZE, 0, &serveraddr, &serverlen);
+      n = recvfrom(sockfd, packetbuf, PKTSIZE, 0, &serveraddr, &serverlen);
       if (n < 0) 
         error("ERROR in recvfrom");
 
@@ -88,7 +89,7 @@ int main(int argc, char **argv) {
       memcpy(&seqnum, packetbuf, HDRSIZE);
       printf("Sequence number: %d\n", seqnum);
       // Get payload
-      memcpy(payloadbuf, packetbuf+HDRSIZE, BUFSIZE-HDRSIZE);
+      memcpy(payloadbuf, packetbuf+HDRSIZE, PAYLOADSIZE);
       printf("Packet content: %s\n", payloadbuf);
       
       // send ACK to server
