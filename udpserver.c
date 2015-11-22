@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <limits.h>
 
 #define PKTSIZE 64
 #define HDRSIZE sizeof(int)
@@ -133,8 +134,14 @@ int main(int argc, char **argv) {
     }
     fclose(fp);
     printf("Successfully sent file!\n");
-    // TODO: send some special message to client to
-    // signal that the file finished sending.
+
+    /* Let client know file was successfuly sent */
+    seqnum = INT_MAX;
+    memcpy(hdrbuf, &seqnum, HDRSIZE);
+    n = sendto(sockfd, hdrbuf, HDRSIZE, 0,
+	       (struct sockaddr *) &clientaddr, clientlen);
+    if (n < 0) 
+	    error("ERROR in sendto");
     
   }
 }

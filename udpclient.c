@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
+#include <limits.h>
 
 #define PKTSIZE 64
 #define HDRSIZE sizeof(int)
@@ -77,7 +78,7 @@ int main(int argc, char **argv) {
     /* Main loop: receive packet, send ACK, repeat */
     while(1) {
       bzero(packetbuf, PKTSIZE);
-      filebufsize += (PAYLOADSIZE);
+      filebufsize += PAYLOADSIZE;
       filebuf = (char*) realloc(filebuf, filebufsize); 
       
       // Receive entire packet
@@ -88,6 +89,7 @@ int main(int argc, char **argv) {
       // Get header
       memcpy(&seqnum, packetbuf, HDRSIZE);
       printf("Sequence number: %d\n", seqnum);
+      if (seqnum == INT_MAX) break;
       // Get payload
       memcpy(payloadbuf, packetbuf+HDRSIZE, PAYLOADSIZE);
       printf("Packet content: %s\n", payloadbuf);
@@ -99,9 +101,16 @@ int main(int argc, char **argv) {
 	      error("ERROR in sendto");
       acknum++;
 
-      strcat(filebuf, packetbuf);
+      strcat(filebuf, payloadbuf);
     }
-    //TODO: print filebuf.
-    // put filebuf into file.
+    printf("Successfuly received file! File contents:\n%s\n", filebuf);
+
+    /* store file contents into new file */
+    FILE *fp;
+    strcat(filename, "-client");
+    fp = fopen(filename, "w+");
+    if (fp == NULL)
+	    error("ERROR in fopen");
+    fputs(filebuf, (FILE*) fp);
     return 0;
 }
