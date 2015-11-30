@@ -158,7 +158,6 @@ int main(int argc, char **argv) {
 	while (1) {
 	  pthread_mutex_lock(&lock);
 	  if (seqnum < *acknum+WINSIZE) {
-		  printf("LOOP: seqnum = %d, acknum = %d\n", seqnum, *acknum);
 	    pthread_mutex_unlock(&lock);		
 	    break;
 	  }

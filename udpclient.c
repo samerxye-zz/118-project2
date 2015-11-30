@@ -17,8 +17,8 @@
 #define HDRSIZE sizeof(int)
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
 #define TIMEOUT 5 // seconds
-#define PLOSS 100 // Probability of packet loss (0-100) 
-#define PCORRUPT 50  // Probability of packet corrption (0-100)
+#define PLOSS 0 // Probability of packet loss (0-100) 
+#define PCORRUPT 0  // Probability of packet corrption (0-100)
 
 /* error - wrapper for perror */
 void error(char *msg) {
@@ -90,8 +90,9 @@ int main(int argc, char **argv) {
       if (n < 0) 
         error("ERROR in recvfrom");
 
-      // TODO: PROBABILITY LOSS AND CORRUPT
-      // LOSS = skip
+      // Packet loss!
+      rand_num = rand() % 100 + 1;
+      if (rand_num <= PLOSS) {printf("packet lost\n"); continue;}
 
       // Get header
       memcpy(&seqnum, packetbuf, HDRSIZE);
@@ -105,7 +106,6 @@ int main(int argc, char **argv) {
       // - otherwise, ignore and resend ACK
       rand_num = rand() % 100 + 1;
       if (seqnum != acknum || rand_num <= PCORRUPT) {
-	      printf("corrupt\n");
         memcpy(hdrbuf, &acknum, HDRSIZE);      
 	n = sendto(sockfd, hdrbuf, strlen(hdrbuf), 0, &serveraddr, serverlen);
 	if (n < 0) 
