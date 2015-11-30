@@ -18,6 +18,10 @@
     - ACK# from client to server is the SEQ# of the next expected packet
     - SEQ# from server to client is the SEQ# of the current packet  
   - Implement window size
+    - two processes: one child receiving acks, one sending packets?
+    - how to simultaneously read packets and send...
+    - packets have ack and seq number....
+    	    
 2. implement handshake
   - SYN, SYNACK, END
   - close also? FIN, ACK

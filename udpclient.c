@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
     char packetbuf[PKTSIZE]; // Data for entire packet: hdrbuf + payloadbuf
     char *hdrbuf = (char*)malloc(HDRSIZE); // Packet header data
     char *payloadbuf = (char*)malloc(PKTSIZE); // Packet payload data
-    int acknum = 1; // Sequence number of next packet that client expects from server
+    int acknum = 0; // Sequence number of next packet that client expects from server
     int seqnum = 0; // Sequence number of packet received from server.
 
     /* check command line arguments */
@@ -94,12 +94,18 @@ int main(int argc, char **argv) {
       memcpy(payloadbuf, packetbuf+HDRSIZE, PAYLOADSIZE);
       printf("Packet content: %s\n", payloadbuf);
       
+      // GBN---Only accept packet if in order
+      // ie. sequence number of packet == expected packet
+      // resend same acknum
+      if (seqnum != acknum)
+	      acknum--;
+
       // send ACK to server
+      acknum++;
       memcpy(hdrbuf, &acknum, HDRSIZE);      
       n = sendto(sockfd, hdrbuf, strlen(hdrbuf), 0, &serveraddr, serverlen);
       if (n < 0) 
 	      error("ERROR in sendto");
-      acknum++;
 
       strcat(filebuf, payloadbuf);
     }

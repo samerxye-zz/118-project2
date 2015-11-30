@@ -13,14 +13,14 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <limits.h>
+#include <sys/mman.h>
+#include <signal.h>
 
 #define PKTSIZE 64
 #define HDRSIZE sizeof(int)
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
 
-/*
- * error - wrapper for perror
- */
+/* error - wrapper for perror */
 void error(char *msg) {
   perror(msg);
   exit(1);
@@ -40,8 +40,11 @@ int main(int argc, char **argv) {
   char packetbuf[PKTSIZE]; // Entire packet's data
   char* hdrbuf = (char*)malloc(HDRSIZE); // Packet header
   char payloadbuf[PKTSIZE]; // Packet payload
-  int acknum = 0; // Sequence number of packet that client is expecting
   int seqnum = 0; // Sequence number of packet that server is sending
+  /* mmap = shared variable across processes */
+  int *acknum = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, 
+		     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  *acknum = 0; // Sequence number of packet that client is expecting
   
 
   /* check command line arguments */
@@ -105,37 +108,54 @@ int main(int argc, char **argv) {
     fp = fopen(buf, "r");
     if (fp == NULL) 
 	    error("ERROR in fopen");
-    /* Second loop: send packet, wait for ack, then send next */
-      // Construct payload: get file info
-    while (fgets(payloadbuf, PAYLOADSIZE, (FILE*)fp) != NULL) {
-      // Construct header
-      memcpy(hdrbuf, &seqnum, HDRSIZE);
 
-      // Packet = payload + header
-      memcpy(packetbuf, hdrbuf, HDRSIZE);
-      memcpy(packetbuf+HDRSIZE, payloadbuf, PAYLOADSIZE);
-      printf("Packet content: %s\n", packetbuf+HDRSIZE);
+    pid_t pid = fork();
 
-      // Send packet
-      n = sendto(sockfd, packetbuf, PKTSIZE, 0,
-		 (struct sockaddr *) &clientaddr, clientlen);
-      if (n < 0) 
-	    error("ERROR in sendto");
+    /* Parent process sends packets */
+    if (pid > 0) {
+      printf("pid: %d\n", pid);
+      while (1) {
+	// Construct payload: get file info
+	if (fgets(payloadbuf, PAYLOADSIZE, (FILE*)fp) == NULL) break;
+	// Construct header
+	memcpy(hdrbuf, &seqnum, HDRSIZE);
 
-      // Wait for ACK from client
-      n = recvfrom(sockfd, hdrbuf, HDRSIZE, 0,
-		   (struct sockaddr *) &clientaddr, &clientlen);
-      if (n < 0) 
-	    error("ERROR in recvfrom");
-      memcpy(&acknum, hdrbuf, HDRSIZE);
-      printf("Ack number: %d\n", acknum);
-
-      seqnum++;
+	// Packet = payload + header
+	memcpy(packetbuf, hdrbuf, HDRSIZE);
+	memcpy(packetbuf+HDRSIZE, payloadbuf, PAYLOADSIZE);
+	printf("Packet content: %s\n", packetbuf+HDRSIZE);
+	
+	// Send packet
+	n = sendto(sockfd, packetbuf, PKTSIZE, 0,
+		   (struct sockaddr *) &clientaddr, clientlen);
+	if (n < 0) 
+		error("ERROR in sendto");
+	
+	seqnum++;
+	while(*acknum != seqnum) continue;
+      }
+      fclose(fp);
+      printf("Successfully sent file!\n");
+      kill(pid, SIGKILL); // End child process
     }
-    fclose(fp);
-    printf("Successfully sent file!\n");
+    /* Child process receives packets */
+    else if (pid == 0) { 
+      printf("pid: %d\n", pid);
+      
+      while (1) {
+        // Wait for ACK from client
+	n = recvfrom(sockfd, hdrbuf, HDRSIZE, 0,
+		     (struct sockaddr *) &clientaddr, &clientlen);
+	if (n < 0) 
+		error("ERROR in recvfrom");
+	memcpy(acknum, hdrbuf, HDRSIZE);
+	printf("Ack number: %d\n", *acknum);
+      }
+    }
+    else
+      error("ERROR in fork");	 
 
-    /* Let client know file was successfuly sent */
+    /* Let client know that file was successfuly sent */
     seqnum = INT_MAX;
     memcpy(hdrbuf, &seqnum, HDRSIZE);
     n = sendto(sockfd, hdrbuf, HDRSIZE, 0,
