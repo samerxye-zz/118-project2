@@ -23,6 +23,8 @@
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
 #define WINSIZE 3
 #define TIMEOUT 1 //seconds
+#define PLOSS 100 // Probability of packet loss (0-100)
+#define PCORRUPT 50 // Probability of packet corruption (0-100)
 
 pthread_mutex_t lock;
 
@@ -33,6 +35,7 @@ void error(char *msg) {
 }
 
 int main(int argc, char **argv) {
+  srand(time(NULL));
   int sockfd; /* socket */
   int portno; /* port to listen on */
   int clientlen; /* byte size of client's address */
@@ -51,7 +54,7 @@ int main(int argc, char **argv) {
   int *acknum = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, 
 		     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   *acknum = 0; // Sequence number of packet that client is expecting
-  
+  int rand_num;
 
   /* check command line arguments */
   if (argc != 2) {
@@ -130,12 +133,13 @@ int main(int argc, char **argv) {
 	    pthread_mutex_unlock(&lock);		
 	    break;
 	  }
-	  pthread_mutex_unlock(&lock);		
+	  pthread_mutex_unlock(&lock);
+	  seqnum = *acknum;
 	}
 	else {
 	  // Header: sequence number
 	  memcpy(hdrbuf, &seqnum, HDRSIZE);
-
+	
 	  // Packet = payload + header
 	  memcpy(packetbuf, hdrbuf, HDRSIZE);
 	  memcpy(packetbuf+HDRSIZE, payloadbuf, PAYLOADSIZE);
@@ -148,11 +152,13 @@ int main(int argc, char **argv) {
 		  error("ERROR in sendto");
 	  seqnum++;
 	}
+
 	// Wait for window size to open.
 	time_t timer = time(0);
 	while (1) {
 	  pthread_mutex_lock(&lock);
 	  if (seqnum < *acknum+WINSIZE) {
+		  printf("LOOP: seqnum = %d, acknum = %d\n", seqnum, *acknum);
 	    pthread_mutex_unlock(&lock);		
 	    break;
 	  }
@@ -179,6 +185,14 @@ int main(int argc, char **argv) {
 		     (struct sockaddr *) &clientaddr, &clientlen);
 	if (n < 0) 
 		error("ERROR in recvfrom");
+
+	/* Corrupt packet: reset sequence number
+	rand_num = rand()%100 + 1;
+	if (rand_num <= PCORRUPT) {
+	  printf("CORRUPT PACKET\n");
+	  continue;
+	  }*/
+
 	pthread_mutex_lock(&lock);
 	memcpy(acknum, hdrbuf, HDRSIZE);
 	printf("Expected packet#: %d\n", *acknum);

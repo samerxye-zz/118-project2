@@ -21,10 +21,9 @@
     - two processes: one child receiving acks, one sending packets?
     - how to simultaneously read packets and send...
     - packets have ack and seq number....
-  - Implement timer and retransmission on timeout (GBN)
+  - Implement timer and retransmission on timeout (GBN) server side
     - only need one timer for the send_base... NOT for every packet
-2. implement handshake
-  - SYN, SYNACK, END
-  - close also? FIN, ACK
-3. emulate packet loss
+2. Emulate packet corruption/loss on client side
+3. Emulate packet corruption/loss on server side. 
+   - Must implement retransmission on client side as well.
    

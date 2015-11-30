@@ -16,8 +16,9 @@
 #define PKTSIZE 64
 #define HDRSIZE sizeof(int)
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
-#define PLOSS 100 // % Probability of packet loss 
-#define PCORRUPT 25  // % Probability of packet corrption
+#define TIMEOUT 5 // seconds
+#define PLOSS 100 // Probability of packet loss (0-100) 
+#define PCORRUPT 50  // Probability of packet corrption (0-100)
 
 /* error - wrapper for perror */
 void error(char *msg) {
@@ -103,7 +104,8 @@ int main(int argc, char **argv) {
       // Accept packet if in order and NOT corrupt
       // - otherwise, ignore and resend ACK
       rand_num = rand() % 100 + 1;
-      if (seqnum != acknum || rand_num < PCORRUPT) {
+      if (seqnum != acknum || rand_num <= PCORRUPT) {
+	      printf("corrupt\n");
         memcpy(hdrbuf, &acknum, HDRSIZE);      
 	n = sendto(sockfd, hdrbuf, strlen(hdrbuf), 0, &serveraddr, serverlen);
 	if (n < 0) 
