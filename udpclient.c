@@ -16,9 +16,7 @@
 #define HDRSIZE sizeof(int)
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
 
-/* 
- * error - wrapper for perror
- */
+/* error - wrapper for perror */
 void error(char *msg) {
     perror(msg);
     exit(0);
@@ -88,7 +86,7 @@ int main(int argc, char **argv) {
 
       // Get header
       memcpy(&seqnum, packetbuf, HDRSIZE);
-      printf("Sequence number: %d\n", seqnum);
+      printf("SEQ#: %d, ACK#: %d\n", seqnum, acknum);
       if (seqnum == INT_MAX) break;
       // Get payload
       memcpy(payloadbuf, packetbuf+HDRSIZE, PAYLOADSIZE);
@@ -97,8 +95,12 @@ int main(int argc, char **argv) {
       // GBN---Only accept packet if in order
       // ie. sequence number of packet == expected packet
       // resend same acknum
-      if (seqnum != acknum)
-	      acknum--;
+      if (seqnum != acknum) {
+        memcpy(hdrbuf, &acknum, HDRSIZE);      
+	n = sendto(sockfd, hdrbuf, strlen(hdrbuf), 0, &serveraddr, serverlen);
+	if (n < 0) 
+		error("ERROR in sendto");	   
+      }
 
       // send ACK to server
       acknum++;

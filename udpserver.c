@@ -19,6 +19,7 @@
 #define PKTSIZE 64
 #define HDRSIZE sizeof(int)
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
+#define WINSIZE 10
 
 /* error - wrapper for perror */
 void error(char *msg) {
@@ -105,7 +106,7 @@ int main(int argc, char **argv) {
     
     /* open and read file. send file contents via packets. */
     FILE *fp;
-    fp = fopen(buf, "r");
+    fp = fopen(buf, "rw");
     if (fp == NULL) 
 	    error("ERROR in fopen");
 
@@ -113,11 +114,13 @@ int main(int argc, char **argv) {
 
     /* Parent process sends packets */
     if (pid > 0) {
-      printf("pid: %d\n", pid);
       while (1) {
-	// Construct payload: get file info
+	// Payload: get file contents relative to sequence number
+	printf("seek: %d\n", seqnum*(PAYLOADSIZE-1));
+	if (fseek((FILE*)fp, seqnum*(PAYLOADSIZE-1), SEEK_SET))
+	  error("ERROR in fseek");
 	if (fgets(payloadbuf, PAYLOADSIZE, (FILE*)fp) == NULL) break;
-	// Construct header
+	// Header: sequence number
 	memcpy(hdrbuf, &seqnum, HDRSIZE);
 
 	// Packet = payload + header
@@ -132,18 +135,20 @@ int main(int argc, char **argv) {
 		error("ERROR in sendto");
 	
 	seqnum++;
-	while(*acknum != seqnum) continue;
+
+	// Wait for window size to open
+	while(seqnum >= *acknum+WINSIZE) {}
       }
+      // Wait for remaining ACK's to arrive
+      while (seqnum != *acknum);
       fclose(fp);
       printf("Successfully sent file!\n");
       kill(pid, SIGKILL); // End child process
     }
-    /* Child process receives packets */
+    /* Child process receives ACK packets from client */
     else if (pid == 0) { 
-      printf("pid: %d\n", pid);
-      
       while (1) {
-        // Wait for ACK from client
+	usleep(500000);
 	n = recvfrom(sockfd, hdrbuf, HDRSIZE, 0,
 		     (struct sockaddr *) &clientaddr, &clientlen);
 	if (n < 0) 
@@ -162,6 +167,6 @@ int main(int argc, char **argv) {
 	       (struct sockaddr *) &clientaddr, clientlen);
     if (n < 0) 
 	    error("ERROR in sendto");
-    
+    exit(0);
   }
 }
