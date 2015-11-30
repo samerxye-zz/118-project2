@@ -26,4 +26,6 @@
 2. Emulate packet corruption/loss on client side
 3. Emulate packet corruption/loss on server side. 
    - Must implement retransmission on client side as well.
+
+4. LAST SEQNUM = INT_MAX PACKET LOSS/CORRUPT??
    

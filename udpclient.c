@@ -17,8 +17,8 @@
 #define HDRSIZE sizeof(int)
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
 #define TIMEOUT 5 // seconds
-#define PLOSS 100 // Probability of packet loss (0-100) 
-#define PCORRUPT 0  // Probability of packet corrption (0-100)
+#define PLOSS 25 // Probability of packet loss (0-100) 
+#define PCORRUPT 25  // Probability of packet corrption (0-100)
 
 /* error - wrapper for perror */
 void error(char *msg) {
@@ -92,26 +92,38 @@ int main(int argc, char **argv) {
 
       // Packet loss!
       rand_num = rand() % 100 + 1;
-      if (rand_num <= PLOSS) {printf("packet lost\n"); continue;}
+      if (rand_num <= PLOSS) {
+        printf("Packet lost!\n");
+        printf("-------------------------------------------------------\n");  
+	continue;
+      }
 
       // Get header
       memcpy(&seqnum, packetbuf, HDRSIZE);
-      printf("SEQ#: %d, ACK#: %d\n", seqnum, acknum);
       if (seqnum == INT_MAX) break;
       // Get payload
       memcpy(payloadbuf, packetbuf+HDRSIZE, PAYLOADSIZE);
-      printf("Packet content: %s\n", payloadbuf);
+
       
       // Accept packet if in order and NOT corrupt
       // - otherwise, ignore and resend ACK
       rand_num = rand() % 100 + 1;
       if (seqnum != acknum || rand_num <= PCORRUPT) {
+	if (seqnum == acknum)
+	  printf("Packet corrupt!\n");
+	else {
+	  printf("Packet out of order! Packet dropped. SEQ#: %d, ACK#: %d\n", seqnum, acknum);
+	}
+        printf("-------------------------------------------------------\n");  
         memcpy(hdrbuf, &acknum, HDRSIZE);      
 	n = sendto(sockfd, hdrbuf, strlen(hdrbuf), 0, &serveraddr, serverlen);
 	if (n < 0) 
 		error("ERROR in sendto");
 	continue;
       }
+      printf("SEQ#: %d, ACK#: %d\n", seqnum, acknum);
+      //printf("Payload: %s\n", payloadbuf);
+      printf("-------------------------------------------------------\n");  
 
       // send ACK to server
       acknum++;

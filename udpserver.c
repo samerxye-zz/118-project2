@@ -143,8 +143,10 @@ int main(int argc, char **argv) {
 	  // Packet = payload + header
 	  memcpy(packetbuf, hdrbuf, HDRSIZE);
 	  memcpy(packetbuf+HDRSIZE, payloadbuf, PAYLOADSIZE);
-	  printf("Packet #%d: %s\n", seqnum, packetbuf+HDRSIZE);
-	  
+	  printf("SEQ#: %d\n---------------------------------------------\n", 
+		 seqnum);
+	  //printf("Payload: %s\n", packetbuf+HDRSIZE);
+
 	  // Send packet
 	  n = sendto(sockfd, packetbuf, PKTSIZE, 0,
 		     (struct sockaddr *) &clientaddr, clientlen);
@@ -164,7 +166,7 @@ int main(int argc, char **argv) {
 	  pthread_mutex_unlock(&lock);		
 	  // Retransmit on timeout
 	  if (TIMEOUT < time(0) - timer) {
-	    printf("TIMEOUT: retransmitting\n");
+	    printf("Timeout! Retransmitting ");
 	    pthread_mutex_lock(&lock);
 	    seqnum = *acknum;
 	    pthread_mutex_unlock(&lock);
@@ -194,7 +196,7 @@ int main(int argc, char **argv) {
 
 	pthread_mutex_lock(&lock);
 	memcpy(acknum, hdrbuf, HDRSIZE);
-	printf("Expected packet#: %d\n", *acknum);
+	printf("ACK# received: %d\n---------------------------------------------\n", *acknum);
 	pthread_mutex_unlock(&lock);		
       }
     }
