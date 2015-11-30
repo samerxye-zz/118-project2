@@ -16,12 +16,13 @@
 #include <sys/mman.h>
 #include <signal.h>
 #include <pthread.h>
+#include <time.h>
 
 #define PKTSIZE 64
 #define HDRSIZE sizeof(int)
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
 #define WINSIZE 3
-#define TIMEOUT 5 //seconds
+#define TIMEOUT 1 //seconds
 
 pthread_mutex_t lock;
 
@@ -110,7 +111,7 @@ int main(int argc, char **argv) {
     
     /* open and read file. send file contents via packets. */
     FILE *fp;
-    fp = fopen(buf, "rw");
+    fp = fopen(buf, "r");
     if (fp == NULL) 
 	    error("ERROR in fopen");
 
@@ -137,15 +138,18 @@ int main(int argc, char **argv) {
 		error("ERROR in sendto");
 	seqnum++;
 
-	// Wait for window size to open. 
-	int timer = 0;
+	// Wait for window size to open.
+	time_t timer = time(0);
 	while (1) {
 	  pthread_mutex_lock(&lock);
 	  if (seqnum < *acknum+WINSIZE) break;
 	  pthread_mutex_unlock(&lock);		
-	  usleep(1000000);
-	  if (++timer >= TIMEOUT) {
-	    seqnum = *acknum;	  
+	  // Retransmit on timeout
+	  if (TIMEOUT < time(0) - timer) {
+	    printf("TIMEOUT\n");
+	    pthread_mutex_lock(&lock);
+	    seqnum = *acknum;
+	    pthread_mutex_unlock(&lock);
 	  }
 	}
       }
@@ -158,7 +162,7 @@ int main(int argc, char **argv) {
     /* Child process receives ACK packets from client */
     else if (pid == 0) { 
       while (1) {
-	      usleep(1000000);
+	usleep(400000);
 	n = recvfrom(sockfd, hdrbuf, HDRSIZE, 0,
 		     (struct sockaddr *) &clientaddr, &clientlen);
 	if (n < 0) 
