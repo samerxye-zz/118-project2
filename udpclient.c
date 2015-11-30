@@ -11,10 +11,13 @@
 #include <netinet/in.h>
 #include <netdb.h> 
 #include <limits.h>
+#include <time.h>
 
 #define PKTSIZE 64
 #define HDRSIZE sizeof(int)
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
+#define PLOSS 100 // % Probability of packet loss 
+#define PCORRUPT 25  // % Probability of packet corrption
 
 /* error - wrapper for perror */
 void error(char *msg) {
@@ -23,6 +26,7 @@ void error(char *msg) {
 }
 
 int main(int argc, char **argv) {
+    srand(time(NULL));
     int sockfd, portno, n;
     int serverlen;
     struct sockaddr_in serveraddr;
@@ -35,6 +39,7 @@ int main(int argc, char **argv) {
     char *payloadbuf = (char*)malloc(PKTSIZE); // Packet payload data
     int acknum = 0; // Sequence number of next packet that client expects from server
     int seqnum = 0; // Sequence number of packet received from server.
+    int rand_num;
 
     /* check command line arguments */
     if (argc != 4) {
@@ -84,6 +89,9 @@ int main(int argc, char **argv) {
       if (n < 0) 
         error("ERROR in recvfrom");
 
+      // TODO: PROBABILITY LOSS AND CORRUPT
+      // LOSS = skip
+
       // Get header
       memcpy(&seqnum, packetbuf, HDRSIZE);
       printf("SEQ#: %d, ACK#: %d\n", seqnum, acknum);
@@ -92,10 +100,10 @@ int main(int argc, char **argv) {
       memcpy(payloadbuf, packetbuf+HDRSIZE, PAYLOADSIZE);
       printf("Packet content: %s\n", payloadbuf);
       
-      // GBN---Only accept packet if in order
-      // ie. sequence number of packet == expected packet
-      // resend same acknum
-      if (seqnum != acknum) {
+      // Accept packet if in order and NOT corrupt
+      // - otherwise, ignore and resend ACK
+      rand_num = rand() % 100 + 1;
+      if (seqnum != acknum || rand_num < PCORRUPT) {
         memcpy(hdrbuf, &acknum, HDRSIZE);      
 	n = sendto(sockfd, hdrbuf, strlen(hdrbuf), 0, &serveraddr, serverlen);
 	if (n < 0) 

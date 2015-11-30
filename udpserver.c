@@ -122,31 +122,44 @@ int main(int argc, char **argv) {
       while (1) {
 	// Payload: get file contents relative to sequence number
 	if (fseek((FILE*)fp, seqnum*(PAYLOADSIZE-1), SEEK_SET)) error("ERROR in fseek");
-	if (fgets(payloadbuf, PAYLOADSIZE, (FILE*)fp) == NULL) break;
-	// Header: sequence number
-	memcpy(hdrbuf, &seqnum, HDRSIZE);
+	if (fgets(payloadbuf, PAYLOADSIZE, (FILE*)fp) == NULL) {
+	  // Only break out of loop if all packets have been ACKed
+	  // Even if we reached EOF, in-flight packets can be lost, so we stay in loop
+	  pthread_mutex_lock(&lock);
+	  if (seqnum == *acknum)  {
+	    pthread_mutex_unlock(&lock);		
+	    break;
+	  }
+	  pthread_mutex_unlock(&lock);		
+	}
+	else {
+	  // Header: sequence number
+	  memcpy(hdrbuf, &seqnum, HDRSIZE);
 
-	// Packet = payload + header
-	memcpy(packetbuf, hdrbuf, HDRSIZE);
-	memcpy(packetbuf+HDRSIZE, payloadbuf, PAYLOADSIZE);
-	printf("Packet #%d: %s\n", seqnum, packetbuf+HDRSIZE);
-	
-	// Send packet
-	n = sendto(sockfd, packetbuf, PKTSIZE, 0,
-		   (struct sockaddr *) &clientaddr, clientlen);
-	if (n < 0) 
-		error("ERROR in sendto");
-	seqnum++;
-
+	  // Packet = payload + header
+	  memcpy(packetbuf, hdrbuf, HDRSIZE);
+	  memcpy(packetbuf+HDRSIZE, payloadbuf, PAYLOADSIZE);
+	  printf("Packet #%d: %s\n", seqnum, packetbuf+HDRSIZE);
+	  
+	  // Send packet
+	  n = sendto(sockfd, packetbuf, PKTSIZE, 0,
+		     (struct sockaddr *) &clientaddr, clientlen);
+	  if (n < 0) 
+		  error("ERROR in sendto");
+	  seqnum++;
+	}
 	// Wait for window size to open.
 	time_t timer = time(0);
 	while (1) {
 	  pthread_mutex_lock(&lock);
-	  if (seqnum < *acknum+WINSIZE) break;
+	  if (seqnum < *acknum+WINSIZE) {
+	    pthread_mutex_unlock(&lock);		
+	    break;
+	  }
 	  pthread_mutex_unlock(&lock);		
 	  // Retransmit on timeout
 	  if (TIMEOUT < time(0) - timer) {
-	    printf("TIMEOUT\n");
+	    printf("TIMEOUT: retransmitting\n");
 	    pthread_mutex_lock(&lock);
 	    seqnum = *acknum;
 	    pthread_mutex_unlock(&lock);
@@ -154,7 +167,6 @@ int main(int argc, char **argv) {
 	}
       }
       // Wait for remaining ACK's to arrive
-      while (seqnum != *acknum);
       fclose(fp);
       printf("Successfully sent file!\n");
       kill(pid, SIGKILL); // End child process
@@ -162,7 +174,7 @@ int main(int argc, char **argv) {
     /* Child process receives ACK packets from client */
     else if (pid == 0) { 
       while (1) {
-	usleep(400000);
+	      //usleep(200000);
 	n = recvfrom(sockfd, hdrbuf, HDRSIZE, 0,
 		     (struct sockaddr *) &clientaddr, &clientlen);
 	if (n < 0) 
