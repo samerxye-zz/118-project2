@@ -187,13 +187,13 @@ int main(int argc, char **argv) {
 	if (n < 0) 
 		error("ERROR in recvfrom");
 
-	/* Corrupt packet: reset sequence number
+	// Packet corrupt!
 	rand_num = rand()%100 + 1;
 	if (rand_num <= PCORRUPT) {
-	  printf("CORRUPT PACKET\n");
+	  printf("Packet corrupt!\n---------------------------------------------\n");
 	  continue;
-	  }*/
-
+	}
+	
 	pthread_mutex_lock(&lock);
 	memcpy(acknum, hdrbuf, HDRSIZE);
 	printf("ACK# received: %d\n---------------------------------------------\n", *acknum);

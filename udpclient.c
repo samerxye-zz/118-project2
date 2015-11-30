@@ -16,9 +16,8 @@
 #define PKTSIZE 64
 #define HDRSIZE sizeof(int)
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
-#define TIMEOUT 5 // seconds
-#define PLOSS 25 // Probability of packet loss (0-100) 
-#define PCORRUPT 25  // Probability of packet corrption (0-100)
+#define PLOSS 0 // Probability of packet loss (0-100) 
+#define PCORRUPT 0  // Probability of packet corrption (0-100)
 
 /* error - wrapper for perror */
 void error(char *msg) {
@@ -103,7 +102,6 @@ int main(int argc, char **argv) {
       if (seqnum == INT_MAX) break;
       // Get payload
       memcpy(payloadbuf, packetbuf+HDRSIZE, PAYLOADSIZE);
-
       
       // Accept packet if in order and NOT corrupt
       // - otherwise, ignore and resend ACK
