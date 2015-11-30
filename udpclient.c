@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
 
     /* store file contents into new file */
     FILE *fp;
-    strcat(filename, "-client");
+    filename = "client.txt";
     fp = fopen(filename, "w+");
     if (fp == NULL)
 	    error("ERROR in fopen");
