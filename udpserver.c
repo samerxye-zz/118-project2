@@ -15,11 +15,15 @@
 #include <limits.h>
 #include <sys/mman.h>
 #include <signal.h>
+#include <pthread.h>
 
 #define PKTSIZE 64
 #define HDRSIZE sizeof(int)
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
-#define WINSIZE 10
+#define WINSIZE 3
+#define TIMEOUT 5 //seconds
+
+pthread_mutex_t lock;
 
 /* error - wrapper for perror */
 void error(char *msg) {
@@ -116,9 +120,7 @@ int main(int argc, char **argv) {
     if (pid > 0) {
       while (1) {
 	// Payload: get file contents relative to sequence number
-	printf("seek: %d\n", seqnum*(PAYLOADSIZE-1));
-	if (fseek((FILE*)fp, seqnum*(PAYLOADSIZE-1), SEEK_SET))
-	  error("ERROR in fseek");
+	if (fseek((FILE*)fp, seqnum*(PAYLOADSIZE-1), SEEK_SET)) error("ERROR in fseek");
 	if (fgets(payloadbuf, PAYLOADSIZE, (FILE*)fp) == NULL) break;
 	// Header: sequence number
 	memcpy(hdrbuf, &seqnum, HDRSIZE);
@@ -126,18 +128,26 @@ int main(int argc, char **argv) {
 	// Packet = payload + header
 	memcpy(packetbuf, hdrbuf, HDRSIZE);
 	memcpy(packetbuf+HDRSIZE, payloadbuf, PAYLOADSIZE);
-	printf("Packet content: %s\n", packetbuf+HDRSIZE);
+	printf("Packet #%d: %s\n", seqnum, packetbuf+HDRSIZE);
 	
 	// Send packet
 	n = sendto(sockfd, packetbuf, PKTSIZE, 0,
 		   (struct sockaddr *) &clientaddr, clientlen);
 	if (n < 0) 
 		error("ERROR in sendto");
-	
 	seqnum++;
 
-	// Wait for window size to open
-	while(seqnum >= *acknum+WINSIZE) {}
+	// Wait for window size to open. 
+	int timer = 0;
+	while (1) {
+	  pthread_mutex_lock(&lock);
+	  if (seqnum < *acknum+WINSIZE) break;
+	  pthread_mutex_unlock(&lock);		
+	  usleep(1000000);
+	  if (++timer >= TIMEOUT) {
+	    seqnum = *acknum;	  
+	  }
+	}
       }
       // Wait for remaining ACK's to arrive
       while (seqnum != *acknum);
@@ -148,13 +158,15 @@ int main(int argc, char **argv) {
     /* Child process receives ACK packets from client */
     else if (pid == 0) { 
       while (1) {
-	usleep(500000);
+	      usleep(1000000);
 	n = recvfrom(sockfd, hdrbuf, HDRSIZE, 0,
 		     (struct sockaddr *) &clientaddr, &clientlen);
 	if (n < 0) 
 		error("ERROR in recvfrom");
+	pthread_mutex_lock(&lock);
 	memcpy(acknum, hdrbuf, HDRSIZE);
-	printf("Ack number: %d\n", *acknum);
+	printf("Expected packet#: %d\n", *acknum);
+	pthread_mutex_unlock(&lock);		
       }
     }
     else

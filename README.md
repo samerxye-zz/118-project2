@@ -14,14 +14,15 @@
 ## TODO:
 1. implement header info and append to each packet
   - What info do we need for **reliable** delivery? for GBN?
-  - CURRENTLY IMPLEMENTED: 
+  - ACK# SEQ#
     - ACK# from client to server is the SEQ# of the next expected packet
     - SEQ# from server to client is the SEQ# of the current packet  
-  - Implement window size
+  - Implement window size (GBN)
     - two processes: one child receiving acks, one sending packets?
     - how to simultaneously read packets and send...
     - packets have ack and seq number....
-    	    
+  - Implement timer and retransmission on timeout (GBN)
+    - only need one timer for the send_base... NOT for every packet
 2. implement handshake
   - SYN, SYNACK, END
   - close also? FIN, ACK

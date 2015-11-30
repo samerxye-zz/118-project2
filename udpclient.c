@@ -99,7 +99,8 @@ int main(int argc, char **argv) {
         memcpy(hdrbuf, &acknum, HDRSIZE);      
 	n = sendto(sockfd, hdrbuf, strlen(hdrbuf), 0, &serveraddr, serverlen);
 	if (n < 0) 
-		error("ERROR in sendto");	   
+		error("ERROR in sendto");
+	continue;
       }
 
       // send ACK to server
