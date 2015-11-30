@@ -16,8 +16,8 @@
 #define PKTSIZE 64
 #define HDRSIZE sizeof(int)
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
-#define PLOSS 0 // Probability of packet loss (0-100) 
-#define PCORRUPT 0  // Probability of packet corrption (0-100)
+#define PLOSS 10 // Probability of packet loss (0-100) 
+#define PCORRUPT 10  // Probability of packet corrption (0-100)
 
 /* error - wrapper for perror */
 void error(char *msg) {

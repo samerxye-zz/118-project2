@@ -23,8 +23,8 @@
 #define PAYLOADSIZE (PKTSIZE-HDRSIZE)
 #define WINSIZE 3
 #define TIMEOUT 1 //seconds
-#define PLOSS 100 // Probability of packet loss (0-100)
-#define PCORRUPT 50 // Probability of packet corruption (0-100)
+#define PLOSS 10 // Probability of packet loss (0-100)
+#define PCORRUPT 10 // Probability of packet corruption (0-100)
 
 pthread_mutex_t lock;
 
@@ -187,7 +187,14 @@ int main(int argc, char **argv) {
 	if (n < 0) 
 		error("ERROR in recvfrom");
 
-	// Packet corrupt!
+	// Receieved packet lost!
+	rand_num = rand()%100 + 1;
+	if (rand_num <= PLOSS) {
+	  printf("Packet lost!\n---------------------------------------------\n");
+	  continue;
+	}
+
+	// Received packet corrupt!
 	rand_num = rand()%100 + 1;
 	if (rand_num <= PCORRUPT) {
 	  printf("Packet corrupt!\n---------------------------------------------\n");

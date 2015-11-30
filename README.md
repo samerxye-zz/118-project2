@@ -25,7 +25,7 @@
     - only need one timer for the send_base... NOT for every packet
 2. Emulate packet corruption/loss on client side
 3. Emulate packet corruption/loss on server side. 
-   - Must implement retransmission on client side as well.
+  - corruption and loss have the same reaction. Just wait for timeout, then retransmit.
 
 4. LAST SEQNUM = INT_MAX PACKET LOSS/CORRUPT??
    
